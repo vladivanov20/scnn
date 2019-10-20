@@ -6,12 +6,11 @@ Description: Neural Network implementation in pure Python
 import csv
 import math
 import random
-
+import argparse
 
 class NeuralNetwork:
     def __init__(self, num_predictors):
         self.weights = [random.uniform(-1, 1) for _ in range(num_predictors)]
-        self.percent = 0.5
         self.epochs = 30000
 
     def sigmoid(self, value_array):
@@ -54,92 +53,139 @@ class NeuralNetwork:
                 self.weights, self.dot(weight_adjustments, self.transpose(inputs))
             )
 
-    def normalize(self, predictors):
-        num_rows = len(predictors)
-        num_cols = len(predictors[0])
-        normalized_predictors, min_values, max_values = [], [], []
-        averages = [
-            sum([row[index] for row in predictors]) / num_rows
-            for index in range(num_cols)
-        ]
-        for i in range(num_cols):
-            min_values.append(min(predictors, key=lambda x: x[i])[i])
-            max_values.append(max(predictors, key=lambda x: x[i])[i])
-        for row in predictors:
-            temp = []
-            for i in range(num_cols):
-                temp.append((row[i] - min_values[i]) / (max_values[i] - min_values[i]))
-            normalized_predictors.append(temp)
-        return normalized_predictors
-
     def predict(self, inputs):
         return self.sigmoid(self.dot(self.weights, inputs))
-
-    def split_data(self, predictors, response):
-        cutoff_index = round(len(predictors) * self.percent)
-        return (
-            (predictors[0:cutoff_index], response[0:cutoff_index]),
-            (
-                predictors[cutoff_index : len(predictors)],
-                response[cutoff_index : len(predictors)],
-            ),
-        )
 
     def decision_function(self, results):
         thresresults = []
         for threshold in range(0, 1001, 1):
-            prediction_scores = [1 if prediction > (threshold / 100) else 0 for prediction in results]
-            difference = [1 if predicted == actual else 0 for predicted, actual in zip(prediction_scores, y_test)]
-            thresresults.append((threshold / 100, difference.count(1) / len(difference)))
+            prediction_scores = [
+                1 if prediction > (threshold / 100) else 0 for prediction in results
+            ]
+            difference = [
+                1 if predicted == actual else 0
+                for predicted, actual in zip(prediction_scores, y_test)
+            ]
+            thresresults.append(
+                (threshold / 100, difference.count(1) / len(difference))
+            )
         print(max(thresresults, key=lambda x: x[1]))
 
 
+class Data_Tools:
+    def __init__(self):
+        pass
+
+    def read_csv(self, filename, predictors, response, scheme):
+        x, y = [], []
+        with open(filename) as csvfile:
+            current_file = csv.reader(csvfile, delimiter=",")
+            for i, row in enumerate(current_file):
+                if i == 0:
+                    predictors.append(response)
+                    indexes = [(j, col) for j, col in enumerate(row) if col in predictors]
+                else:
+                    x_row, y_row = [], []
+                    for (index, variable) in indexes:
+                        if variable != response:
+                            x_row.append(float(row[index]))
+                        else:
+                            y_row.append(1.0 if row[index] == scheme else 0.0)
+                    x.append(x_row)
+                    y.extend(y_row)
+        return x, y
+
+    def split_data(self, x, y, percent):
+        nrows = len(x)
+        split = round(nrows * percent)
+        return ((x[0:split], y[0:split]), (x[split:nrows], y[split:nrows]))
+
+    def normalize(self, df):
+        num_cols = len(df[0])
+        normalized_df = []
+        
+        min_values = [min(df, key=lambda x: x[i])[i] for i in range(num_cols)]
+        max_values = [max(df, key=lambda x: x[i])[i] for i in range(num_cols)]
+            
+        for row in df:
+            temp = []
+            for i in range(num_cols):
+                temp.append((row[i] - min_values[i]) / (max_values[i] - min_values[i]))
+            normalized_df.append(temp)
+        return normalized_df
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Neural Network Auto Optimizer')
 
-    # Select top 5 features
-    feature_selection = [
-        "area_mean",
-        "radius_se",
-        "texture_worst",
-        "compactness_worst",
-        "smoothness_worst",
-        "diagnosis",
-    ]
-    predictors, response = [], []
-    response_variable = "diagnosis"
-    positive_response = "M"
-    with open("breastcancer.csv") as csvfile:
-        current_file = csv.reader(csvfile, delimiter=",")
-        for i, row in enumerate(current_file):
-            if i == 0:
-                index_list = [
-                    (j, col) for j, col in enumerate(row) if col in feature_selection
-                ]
-            else:
-                row_predictors, row_response = [], []
-                for (index, variable) in index_list:
-                    if variable != response_variable:
-                        row_predictors.append(float(row[index]))
-                    else:
-                        row_response.append(1 if row[index] == positive_response else 0)
-                predictors.append(row_predictors)
-                response.extend(row_response)
+    parser.add_argument(
+        '-f',
+        '--file',
+        default=None,
+        help='Filename in a string format. E.g. "breastcancer.csv"'
+    )
 
-    model = NeuralNetwork(len(predictors[0]))
+    parser.add_argument(
+        '-p',
+        '--predictors',
+        default=None,
+        help='List of predictors in a string format separated by comma. \
+        E.g. "area_mean, radius_se, texture_worst, compactness_worst, \
+        smoothness_worst"'
+    )
 
+    parser.add_argument(
+        '-r',
+        '--response',
+        default=None,
+        help='Name of the response variable in a string format. E.g. \
+            "diagnosis"'
+    )
+
+    parser.add_argument(
+        '-s',
+        '--scheme',
+        default=1,
+        help='Naming scheme for the positive response. E.g. "M"'
+    )
+
+    parser.add_argument(
+        '-c',
+        '--percent',
+        default=0.5,
+        help='Percentage cross validation split (train/test ratio). E.g. 0.5'
+    )
+
+    config = parser.parse_args()
+    tools = Data_Tools()
+    
+    # --file "breastcancer.csv" -s "M" -r "diagnosis" -p 
+    predictors = config.predictors.replace(' ', '').split(',')
+    print("######################## CONFIGURATION ##########################")
+    print("File name: " + config.file)
+    print("Selected predictors: " + ', '.join(predictors))
+    print("Selected response variable: " + str(config.response))
+    print("Positive response scheme: " + str(config.scheme))
+    print("Cross validation split: " + str(config.percent))
+    print("#################################################################")
+    
+    x, y = tools.read_csv(config.file, predictors, config.response, config.scheme)
+    
     # Split Dataset into Test and Training Data
-    ((x_train, y_train), (x_test, y_test)) = model.split_data(predictors, response)
+    ((x_train, y_train), (x_test, y_test)) = tools.split_data(x, y, config.percent)
     
     # Normalize the data
-    x_train = model.normalize(x_train)
-    x_test = model.normalize(x_test)
+    x_train = tools.normalize(x_train)
+    x_test = tools.normalize(x_test)
+    
+    # Initialize the model
+    model = NeuralNetwork(len(x[0]))
     
     # Train the neural network
     model.train(x_train, y_train)
-    
+
     # Prediction for test dataset
     results = model.predict(x_test)
-    
-    # Determine optimal decision threshold
-    model.decision_function(results)
 
+    # Determine an optimal decision threshold
+    model.decision_function(results)
