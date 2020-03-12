@@ -19,10 +19,3 @@ $ git clone https://github.com/vladivanov20/scnn.git
 $ cd scnn
 $ python3 main.py -f "data/breast-cancer-wisconsin.csv"
 ```
-
-
-
-
-
-
-
