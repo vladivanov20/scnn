@@ -1,6 +1,6 @@
 # ML From Scratch: Self-Configuring Neural Network 
 
-![preview](resources/preview.png)
+![preview](resources/preview.PNG)
 
 Features:
 
@@ -19,10 +19,3 @@ $ git clone https://github.com/vladivanov20/scnn.git
 $ cd scnn
 $ python3 main.py -f "data/breast-cancer-wisconsin.csv"
 ```
-
-
-
-
-
-
-
